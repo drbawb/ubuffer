@@ -1,0 +1,12 @@
+[package]
+name = "ubuffer"
+version = "0.1.0"
+authors = ["drbawb <drbawb@fatalsyntax.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2"
+env_logger = "0.6"
+failure = "0.1"
+log = "0.4"
+utp = "0.7"
