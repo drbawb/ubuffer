@@ -6,9 +6,11 @@ extern crate env_logger;
 extern crate udt;
 
 use clap::{Arg, App};
-use std::io::{self, BufReader, BufRead, Read, Write};
+use std::io::{self, BufReader, BufRead, Write};
 use std::net::ToSocketAddrs;
 use udt::{SocketFamily, SocketType, UdtSocket};
+
+const BLOCK_SIZE: usize = 128 * 1024;
 
 #[derive(Fail, Debug)]
 enum ApplicationError {
@@ -75,8 +77,8 @@ fn start_sender(addr: &str) -> Result<(), failure::Error> {
 
 	
 
-	info!("setting up 128KiB buffer");
-	let mut reader = BufReader::with_capacity(128 * 1024, stdin_lock);
+	info!("setting up buffer");
+	let mut reader = BufReader::with_capacity(BLOCK_SIZE, stdin_lock);
 
 	'copy: loop {
 		let buf = reader.fill_buf()?;
@@ -123,13 +125,13 @@ fn start_receiver(addr: &str) -> Result<(), failure::Error> {
 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
 
 	info!("accepting connection ...");
-	let (mut conn, peer) = sock.accept()
+	let (conn, peer) = sock.accept()
 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
 
 	info!("connected to peer {:?}", peer);
 
 	info!("creating receive buffer");
-	let mut buf = vec![0u8; 128 * 1024];
+	let mut buf = vec![0u8; BLOCK_SIZE];
 	let mut stdout = io::stdout();
 	let mut total_bytes = 0;
 
