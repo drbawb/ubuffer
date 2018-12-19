@@ -1,13 +1,26 @@
+#[macro_use] extern crate failure;
 #[macro_use] extern crate log;
 
 extern crate clap;
 extern crate env_logger;
-extern crate failure;
-extern crate utp;
+extern crate udt;
 
 use clap::{Arg, App};
 use std::io::{self, BufReader, BufRead, Read, Write};
-use utp::{UtpSocket, UtpStream};
+use std::net::ToSocketAddrs;
+use udt::{SocketFamily, SocketType, UdtSocket};
+
+#[derive(Fail, Debug)]
+enum ApplicationError {
+	#[fail(display = "failed to connect to socket")]
+	SocketErr { inner: udt::UdtError },
+
+	#[fail(display = "failed to send data through socket")]
+	TxErr { inner: udt::UdtError },
+
+	#[fail(display = "failed to receive data through socket")]
+	RxErr { inner: udt::UdtError },
+}
 
 fn main() -> Result<(), failure::Error> {
 	env_logger::init();
@@ -50,7 +63,17 @@ fn start_sender(addr: &str) -> Result<(), failure::Error> {
 	let stdin_lock = stdin.lock();
 
 	info!("connecting to utp receiver ...");
-	let mut stream = UtpStream::connect(addr)?;
+	let addr = addr.to_socket_addrs()?
+		.take(1).next()
+		.expect("no valid sender address?");
+
+	let sock = UdtSocket::new(SocketFamily::AFInet, SocketType::Stream)
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+
+	sock.connect(addr)
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+
+	
 
 	info!("setting up 128KiB buffer");
 	let mut reader = BufReader::with_capacity(128 * 1024, stdin_lock);
@@ -63,36 +86,65 @@ fn start_sender(addr: &str) -> Result<(), failure::Error> {
 			break 'copy;
 		}
 
-		stream.write(buf)?;
-		stream.flush()?;
+		let mut pos = 0;
+		'write: loop {
+			let bytes_sent = sock.send(&buf[pos..bytes_read])
+				.map_err(|err| ApplicationError::TxErr { inner: err })?;
+
+			pos += bytes_sent as usize; // NOTE: why the heck is this an i32?
+			info!("pos: {}, sent: {}, len: {}", pos, bytes_sent, bytes_read);
+			if pos >= bytes_read { break 'write; }
+		}
+
 		reader.consume(bytes_read);
 		info!("consumed {} bytes of input", bytes_read);
 	}
 
 	info!("closing utp stream");
-	stream.close()?;
+	sock.close()
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
 
 	Ok(())
 }
 
 fn start_receiver(addr: &str) -> Result<(), failure::Error> {
+	info!("starting utp receiver ...");
+	let addr = addr.to_socket_addrs()?
+		.take(1).next()
+		.expect("no valid sender address?");
+
+	let sock = UdtSocket::new(SocketFamily::AFInet, SocketType::Stream)
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+
+	sock.bind(addr)
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+
+	sock.listen(1)
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+
+	info!("accepting connection ...");
+	let (mut conn, peer) = sock.accept()
+		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+
+	info!("connected to peer {:?}", peer);
+
 	info!("creating receive buffer");
 	let mut buf = vec![0u8; 128 * 1024];
 	let mut stdout = io::stdout();
 	let mut total_bytes = 0;
 
-	info!("starting utp receiver ...");
-	let listen = UtpSocket::bind(addr)?;
-	let mut stream: UtpStream = listen.into();
-
 	'copy: loop {
-		let bytes_read = stream.read(&mut buf)?;
+		let buf_len = buf.len();
+		let bytes_read = conn.recv(&mut buf, buf_len)
+			.map_err(|err| ApplicationError::RxErr { inner: err })?;
 		if bytes_read == 0 {
 			info!("stream reached EOF");
 			break 'copy;
 		}
+		
+		info!("recv {} bytes", bytes_read);
 
-		stdout.write(&buf[0..bytes_read])?;
+		stdout.write(&buf[0..(bytes_read as usize)])?;
 		stdout.flush()?;
 		total_bytes += bytes_read;
 
