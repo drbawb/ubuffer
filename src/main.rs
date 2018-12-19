@@ -25,8 +25,8 @@ enum ApplicationError {
 fn main() -> Result<(), failure::Error> {
 	env_logger::init();
 
-	let matches = App::new("uTP buffer")
-		.version("0.1.0") // TODO: from cargo ENV
+	let matches = App::new("UDT buffer")
+		.version(env!("CARGO_PKG_VERSION")) 
 		.about("Transfers files between two nodes over uTP.")
 		.arg(Arg::with_name("recv_addr")
 			 .short("r")
