@@ -17,12 +17,23 @@ pub enum ApplicationError {
 
 #[derive(Fail, Debug)]
 pub enum ProtoError {
+	#[fail(display = "unexpected crypto error")]
+	CryptoErr,
+
 	#[fail(display = "unexpected i/o error")]
 	IoErr { inner: std::io::Error },
 
-
 	#[fail(display = "unexpected network socket error")]
 	SocketErr { inner: udt::UdtError },
+
+	#[fail(display = "message type was not expected at this time ...")]
+	UnexpectedMessage,
+}
+
+impl From<ring::error::Unspecified> for ProtoError {
+	fn from(err: ring::error::Unspecified) -> Self {
+		ProtoError::CryptoErr
+	}
 }
 
 impl From<std::io::Error> for ProtoError {

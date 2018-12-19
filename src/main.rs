@@ -1,9 +1,13 @@
 #[macro_use] extern crate failure;
 #[macro_use] extern crate log;
+#[macro_use] extern crate serde_derive;
 
+extern crate bincode;
+extern crate byteorder;
 extern crate clap;
-extern crate crypto;
 extern crate env_logger;
+extern crate ring;
+extern crate serde;
 extern crate udt;
 
 use crate::error::ApplicationError;
@@ -19,6 +23,10 @@ mod proto;
 
 fn main() -> Result<(), failure::Error> {
 	env_logger::init();
+
+	let mut sender = proto::Sender::new("0.0.0.0:9090", b"CHANGEME")?;
+	sender.run(io::stdin())?;
+
 
 	let matches = App::new("UDT buffer")
 		.version(env!("CARGO_PKG_VERSION")) 
