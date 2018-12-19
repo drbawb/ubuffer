@@ -76,7 +76,7 @@ impl Sender {
 		self.send_hello()?;
 		self.recv_hello()?;
 
-		info!("handshake complete ...");
+		info!("handshake complete!");
 		self.state = State::Transmit;
 
 		Ok(())
@@ -90,8 +90,7 @@ impl Sender {
 			len: 0,
 		};
 
-		let req_iv_buf = bincode::serialize(&req_iv_msg)
-			.expect("fatal: could not serialize message");
+		let req_iv_buf = bincode::serialize(&req_iv_msg)?;
 
 		assert_eq!(MESSAGE_SIZE, req_iv_buf.len());
 		self.stream.write(&req_iv_buf)?;
@@ -104,8 +103,7 @@ impl Sender {
 		info!("waiting for reply from server ...");
 		let mut buf = vec![0u8; MESSAGE_SIZE];
 		self.stream.read_exact(&mut buf)?;
-		let rep_iv_msg: Message= bincode::deserialize(&buf)
-			.expect("fatal: could not deserialize message");
+		let rep_iv_msg: Message= bincode::deserialize(&buf)?;
 
 		info!("got reply: {:?}", rep_iv_msg);
 		let mut buf = vec![0u8; rep_iv_msg.len];
@@ -134,15 +132,13 @@ impl Sender {
 		let msg_nonce = self.get_next_nonce()?;
 		let msg_sz = aead::seal_in_place(&self.enc_key, &msg_nonce, b"", &mut enc_buf, tag_len)?;
 
-
 		// send `Hello` followed by the encrypted payload
 		let hello_msg = Message {
 			ty: MessageTy::Hello,
 			len: msg_sz,
 		};
 
-		let hello_buf = bincode::serialize(&hello_msg)
-			.expect("fatal: could not serialize message");
+		let hello_buf = bincode::serialize(&hello_msg)?;
 		assert_eq!(hello_buf.len(), MESSAGE_SIZE);
 
 		self.stream.write(&hello_buf)?;
@@ -156,8 +152,7 @@ impl Sender {
 
 		let mut buf = vec![0u8; MESSAGE_SIZE];
 		self.stream.read_exact(&mut buf)?;
-		let hello_msg: Message= bincode::deserialize(&buf)
-			.expect("fatal: could not deserialize message");
+		let hello_msg: Message= bincode::deserialize(&buf)?;
 
 		if hello_msg.ty != MessageTy::Hello {
 			return Err(ProtoError::UnexpectedMessage);

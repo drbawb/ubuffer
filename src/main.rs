@@ -6,12 +6,14 @@ extern crate bincode;
 extern crate byteorder;
 extern crate clap;
 extern crate env_logger;
+extern crate rand;
 extern crate ring;
 extern crate serde;
 extern crate udt;
 
 use crate::error::ApplicationError;
 use crate::proto::BLOCK_SIZE;
+use crate::proto::{Sender, Receiver};
 
 use clap::{Arg, App};
 use std::io::{self, BufReader, BufRead, Write};
@@ -23,10 +25,6 @@ mod proto;
 
 fn main() -> Result<(), failure::Error> {
 	env_logger::init();
-
-	let mut sender = proto::Sender::new("0.0.0.0:9090", b"CHANGEME")?;
-	sender.run(io::stdin())?;
-
 
 	let matches = App::new("UDT buffer")
 		.version(env!("CARGO_PKG_VERSION")) 
@@ -61,100 +59,114 @@ fn main() -> Result<(), failure::Error> {
 }
 
 fn start_sender(addr: &str) -> Result<(), failure::Error> {
-	info!("acquiring stdin lock ...");
-	let stdin = io::stdin();
-	let stdin_lock = stdin.lock();
-
-	info!("connecting to utp receiver ...");
-	let addr = addr.to_socket_addrs()?
-		.take(1).next()
-		.expect("no valid sender address?");
-
-	let sock = UdtSocket::new(SocketFamily::AFInet, SocketType::Stream)
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
-
-	sock.connect(addr)
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
-
-	
-
-	info!("setting up buffer");
-	let mut reader = BufReader::with_capacity(BLOCK_SIZE, stdin_lock);
-
-	'copy: loop {
-		let buf = reader.fill_buf()?;
-		let bytes_read = buf.len();
-		if bytes_read == 0 {
-			info!("buffer reached EOF");
-			break 'copy;
-		}
-
-		let mut pos = 0;
-		'write: loop {
-			let bytes_sent = sock.send(&buf[pos..bytes_read])
-				.map_err(|err| ApplicationError::TxErr { inner: err })?;
-
-			pos += bytes_sent as usize; // NOTE: why the heck is this an i32?
-			info!("pos: {}, sent: {}, len: {}", pos, bytes_sent, bytes_read);
-			if pos >= bytes_read { break 'write; }
-		}
-
-		reader.consume(bytes_read);
-		info!("consumed {} bytes of input", bytes_read);
-	}
-
-	info!("closing utp stream");
-	sock.close()
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+	let mut sender = Sender::new(addr, b"dcb23a241cd82c4152b8e5637a4ae121")?;
+	sender.run(io::stdin())?;
 
 	Ok(())
 }
 
 fn start_receiver(addr: &str) -> Result<(), failure::Error> {
-	info!("starting utp receiver ...");
-	let addr = addr.to_socket_addrs()?
-		.take(1).next()
-		.expect("no valid sender address?");
-
-	let sock = UdtSocket::new(SocketFamily::AFInet, SocketType::Stream)
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
-
-	sock.bind(addr)
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
-
-	sock.listen(1)
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
-
-	info!("accepting connection ...");
-	let (conn, peer) = sock.accept()
-		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
-
-	info!("connected to peer {:?}", peer);
-
-	info!("creating receive buffer");
-	let mut buf = vec![0u8; BLOCK_SIZE];
-	let mut stdout = io::stdout();
-	let mut total_bytes = 0;
-
-	'copy: loop {
-		let buf_len = buf.len();
-		let bytes_read = conn.recv(&mut buf, buf_len)
-			.map_err(|err| ApplicationError::RxErr { inner: err })?;
-		if bytes_read == 0 {
-			info!("stream reached EOF");
-			break 'copy;
-		}
-		
-		info!("recv {} bytes", bytes_read);
-
-		stdout.write(&buf[0..(bytes_read as usize)])?;
-		stdout.flush()?;
-		total_bytes += bytes_read;
-
-		info!("read {} bytes", total_bytes);
-	}
-
-	info!("read {} bytes", total_bytes);
+	let mut receiver = Receiver::new(addr, b"dcb23a241cd82c4152b8e5637a4ae121")?;
+	receiver.run(io::stdout())?;
 
 	Ok(())
 }
+
+// fn start_sender(addr: &str) -> Result<(), failure::Error> {
+// 	info!("acquiring stdin lock ...");
+// 	let stdin = io::stdin();
+// 	let stdin_lock = stdin.lock();
+// 
+// 	info!("connecting to utp receiver ...");
+// 	let addr = addr.to_socket_addrs()?
+// 		.take(1).next()
+// 		.expect("no valid sender address?");
+// 
+// 	let sock = UdtSocket::new(SocketFamily::AFInet, SocketType::Stream)
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	sock.connect(addr)
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	
+// 
+// 	info!("setting up buffer");
+// 	let mut reader = BufReader::with_capacity(BLOCK_SIZE, stdin_lock);
+// 
+// 	'copy: loop {
+// 		let buf = reader.fill_buf()?;
+// 		let bytes_read = buf.len();
+// 		if bytes_read == 0 {
+// 			info!("buffer reached EOF");
+// 			break 'copy;
+// 		}
+// 
+// 		let mut pos = 0;
+// 		'write: loop {
+// 			let bytes_sent = sock.send(&buf[pos..bytes_read])
+// 				.map_err(|err| ApplicationError::TxErr { inner: err })?;
+// 
+// 			pos += bytes_sent as usize; // NOTE: why the heck is this an i32?
+// 			info!("pos: {}, sent: {}, len: {}", pos, bytes_sent, bytes_read);
+// 			if pos >= bytes_read { break 'write; }
+// 		}
+// 
+// 		reader.consume(bytes_read);
+// 		info!("consumed {} bytes of input", bytes_read);
+// 	}
+// 
+// 	info!("closing utp stream");
+// 	sock.close()
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	Ok(())
+// }
+// 
+// fn start_receiver(addr: &str) -> Result<(), failure::Error> {
+// 	info!("starting utp receiver ...");
+// 	let addr = addr.to_socket_addrs()?
+// 		.take(1).next()
+// 		.expect("no valid sender address?");
+// 
+// 	let sock = UdtSocket::new(SocketFamily::AFInet, SocketType::Stream)
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	sock.bind(addr)
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	sock.listen(1)
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	info!("accepting connection ...");
+// 	let (conn, peer) = sock.accept()
+// 		.map_err(|err| ApplicationError::SocketErr { inner: err })?;
+// 
+// 	info!("connected to peer {:?}", peer);
+// 
+// 	info!("creating receive buffer");
+// 	let mut buf = vec![0u8; BLOCK_SIZE];
+// 	let mut stdout = io::stdout();
+// 	let mut total_bytes = 0;
+// 
+// 	'copy: loop {
+// 		let buf_len = buf.len();
+// 		let bytes_read = conn.recv(&mut buf, buf_len)
+// 			.map_err(|err| ApplicationError::RxErr { inner: err })?;
+// 		if bytes_read == 0 {
+// 			info!("stream reached EOF");
+// 			break 'copy;
+// 		}
+// 		
+// 		info!("recv {} bytes", bytes_read);
+// 
+// 		stdout.write(&buf[0..(bytes_read as usize)])?;
+// 		stdout.flush()?;
+// 		total_bytes += bytes_read;
+// 
+// 		info!("read {} bytes", total_bytes);
+// 	}
+// 
+// 	info!("read {} bytes", total_bytes);
+// 
+// 	Ok(())
+// }

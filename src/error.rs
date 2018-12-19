@@ -23,6 +23,9 @@ pub enum ProtoError {
 	#[fail(display = "unexpected i/o error")]
 	IoErr { inner: std::io::Error },
 
+	#[fail(display = "serialization failure")]
+	SerializeErr { inner: bincode::Error },
+
 	#[fail(display = "unexpected network socket error")]
 	SocketErr { inner: udt::UdtError },
 
@@ -39,5 +42,17 @@ impl From<ring::error::Unspecified> for ProtoError {
 impl From<std::io::Error> for ProtoError {
 	fn from(err: std::io::Error) -> Self {
 		ProtoError::IoErr { inner: err }
+	}
+}
+
+impl From<udt::UdtError> for ProtoError {
+	fn from(err: udt::UdtError) -> Self {
+		ProtoError::SocketErr { inner: err }
+	}
+}
+
+impl From<bincode::Error> for ProtoError {
+	fn from(err: bincode::Error) -> Self {
+		ProtoError::SerializeErr { inner: err }
 	}
 }

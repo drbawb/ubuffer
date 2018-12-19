@@ -1,3 +1,4 @@
+pub use self::receiver::Receiver;
 pub use self::sender::Sender;
 
 use crate::error::{ApplicationError, ProtoError};
@@ -95,6 +96,8 @@ impl Stream {
 
 		sock.listen(1)
 			.map_err(|err| ProtoError::SocketErr { inner: err })?;
+
+		let (sock, _addr) = sock.accept()?;
 
 		Ok(Self { inner: sock })
 	}
