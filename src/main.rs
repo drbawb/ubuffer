@@ -2,27 +2,20 @@
 #[macro_use] extern crate log;
 
 extern crate clap;
+extern crate crypto;
 extern crate env_logger;
 extern crate udt;
+
+use crate::error::ApplicationError;
+use crate::proto::BLOCK_SIZE;
 
 use clap::{Arg, App};
 use std::io::{self, BufReader, BufRead, Write};
 use std::net::ToSocketAddrs;
 use udt::{SocketFamily, SocketType, UdtSocket};
 
-const BLOCK_SIZE: usize = 128 * 1024;
-
-#[derive(Fail, Debug)]
-enum ApplicationError {
-	#[fail(display = "failed to connect to socket")]
-	SocketErr { inner: udt::UdtError },
-
-	#[fail(display = "failed to send data through socket")]
-	TxErr { inner: udt::UdtError },
-
-	#[fail(display = "failed to receive data through socket")]
-	RxErr { inner: udt::UdtError },
-}
+mod error;
+mod proto;
 
 fn main() -> Result<(), failure::Error> {
 	env_logger::init();
