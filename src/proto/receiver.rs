@@ -1,4 +1,5 @@
 use crate::error::ProtoError;
+use crate::proto::util;
 use crate::proto::{MessageTy, Message, Mode, State, Stream};
 use crate::proto::{BLOCK_SIZE, MAGIC_BYTES, MESSAGE_SIZE};
 
@@ -76,7 +77,7 @@ impl Receiver {
 		assert_eq!(message.ty, MessageTy::Block);
 		
 		let block_sz = message.len;
-		let msg_nonce = self.get_next_nonce()?;
+		let msg_nonce = util::get_next_nonce(&mut self.nonce, &mut self.counter)?;
 		assert!(block_sz <= block_buf.len());
 
 		// decrypt the message
@@ -175,7 +176,7 @@ impl Receiver {
 		let mut enc_payload = vec![0u8; hello_msg.len];
 		self.stream.read_exact(&mut enc_payload)?;
 
-		let msg_nonce = self.get_next_nonce()?; // nonce 0 for client hello
+		let msg_nonce = util::get_next_nonce(&mut self.nonce, &mut self.counter)?;
 		let payload = aead::open_in_place(&self.dec_key, &msg_nonce, b"", 0, &mut enc_payload)?;
 		info!("got hello from client: {:?}", payload);
 
@@ -195,7 +196,7 @@ impl Receiver {
 		};
 
 		// encrypt the buffer in-place
-		let msg_nonce = self.get_next_nonce()?;
+		let msg_nonce = util::get_next_nonce(&mut self.nonce, &mut self.counter)?;
 		let msg_sz = aead::seal_in_place(&self.enc_key, &msg_nonce, b"", &mut enc_buf, tag_len)?;
 
 		// send `Hello` followed by the encrypted payload
@@ -226,17 +227,5 @@ impl Receiver {
 		self.stream.write(&goodbye_buf)?;
 
 		Ok(())
-	}
-
-	fn get_next_nonce(&mut self) -> Result<Box<[u8]>, ProtoError> {
-		let buf = vec![0u8; 12];
-		let mut cursor = Cursor::new(buf);
-
-		self.counter += 1;
-		
-		cursor.write_u32::<NetworkEndian>(self.nonce)?;
-		cursor.write_u64::<NetworkEndian>(self.counter)?;
-
-		Ok(cursor.into_inner().into_boxed_slice())
 	}
 }

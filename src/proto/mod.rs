@@ -7,8 +7,9 @@ use std::io::{self, Read, Write};
 use std::net::{SocketAddr, ToSocketAddrs};
 use udt::{SocketFamily, SocketType, UdtSocket};
 
-mod sender;
 mod receiver;
+mod sender;
+mod util;
 
 pub const BLOCK_SIZE: usize = 128 * 1024;
 pub const MAGIC_BYTES: u32 = 0xDEADBEEF;
