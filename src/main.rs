@@ -61,7 +61,8 @@ fn main() -> Result<(), failure::Error> {
 					.arg(Arg::with_name(CLI_ARG_KEY)
 						 .short(CLI_ARG_KEY_SHORT)
 						 .long(CLI_ARG_KEY_LONG)
-						 .help(CLI_TXT_KEY)))
+						 .help(CLI_TXT_KEY)
+						 .required(true)))
 		.get_matches();
 
 	if let Some(_cmd) = matches.subcommand_matches("sender") {
