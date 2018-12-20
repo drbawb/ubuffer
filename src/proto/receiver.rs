@@ -82,7 +82,7 @@ impl Receiver {
 		// decrypt the message
 		let mut pos = 0;
 		'copy: loop {
-			let bytes_read = self.stream.read(&mut block_buf[pos..])?;
+			let bytes_read = self.stream.read(&mut block_buf[pos..message.len])?;
 
 			if bytes_read == 0 {
 				info!("stream reached EOF");
