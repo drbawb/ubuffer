@@ -89,22 +89,22 @@ impl Sender {
 
 		'copy: loop {
 			let chunk = reader.fill_buf()?;
-			info!("copying block from stdin {}", enc_buffer.len());
-			info!("block size: {}", chunk.len());
+			trace!("copying block from stdin {}", enc_buffer.len());
+			trace!("block size: {}", chunk.len());
 			let mut input_cursor = Cursor::new(&chunk);
 			let mut enc_cursor = Cursor::new(&mut enc_buffer[..BLOCK_SIZE]);
 			let bytes_read = io::copy(&mut input_cursor, &mut enc_cursor)? as usize;
 
 			// TODO: why is io::copy returning a u64?
-			info!("copied {} bytes", bytes_read);
+			trace!("copied {} bytes", bytes_read);
 			reader.consume(bytes_read);
 
 			if bytes_read == 0 {
-				info!("buffer reached eof");
+				debug!("buffer reached eof");
 				break 'copy;
 			}
 
-			info!("encrypting block w/ tag {}", tag_len);
+			trace!("encrypting block w/ tag {}", tag_len);
 			assert!(bytes_read <= BLOCK_SIZE);
 			let nonce = self.get_next_nonce()?;
 			let enc_msg_len = bytes_read + tag_len;
@@ -116,7 +116,7 @@ impl Sender {
 				len: enc_size,
 			};
 
-			info!("sending block message: {:?}", block_msg);
+			trace!("sending block message: {:?}", block_msg);
 			let block_buf = bincode::serialize(&block_msg)?;
 			assert_eq!(block_buf.len(), MESSAGE_SIZE);
 
@@ -127,7 +127,7 @@ impl Sender {
 				let bytes_sent = self.stream.write(&enc_buffer[pos..enc_size])?;
 				pos += bytes_sent as usize;
 
-				info!("pos: {}, sent: {}, len: {}", pos, bytes_sent, bytes_read);
+				trace!("pos: {}, sent: {}, len: {}", pos, bytes_sent, bytes_read);
 				if pos >= enc_size { break 'write; }
 			}
 		}

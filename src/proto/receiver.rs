@@ -58,7 +58,7 @@ impl Receiver {
 	}
 
 	fn wait_chunk<W: Write>(&mut self, block_buf: &mut [u8], mut out: W) -> Result<(), ProtoError> {
-		info!("waiting for block from client ...");
+		debug!("waiting for block from client ...");
 		let mut buf = vec![0u8; MESSAGE_SIZE];
 		self.stream.read_exact(&mut buf)?;
 
@@ -85,14 +85,14 @@ impl Receiver {
 			let bytes_read = self.stream.read(&mut block_buf[pos..message.len])?;
 
 			if bytes_read == 0 {
-				info!("stream reached EOF");
+				debug!("stream reached EOF");
 				break 'copy;
 			}
 
 			info!("recv {} bytes", bytes_read);
 			pos += bytes_read;
 			if pos >= block_sz {
-				info!("done copying encrypted block...");
+				trace!("done copying encrypted block...");
 				break 'copy;
 			}
 		}
