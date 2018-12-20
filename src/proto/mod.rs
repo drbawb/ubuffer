@@ -11,7 +11,7 @@ mod receiver;
 mod sender;
 mod util;
 
-pub const BLOCK_SIZE: usize = 128 * 1024;
+pub const BLOCK_SIZE: usize = 8 * 1024;
 pub const MAGIC_BYTES: u32 = 0xDEADBEEF;
 pub const MESSAGE_SIZE: usize = 12;
 
