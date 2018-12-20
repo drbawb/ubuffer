@@ -5,6 +5,7 @@ authors = ["drbawb <drbawb@fatalsyntax.com>"]
 edition = "2018"
 
 [dependencies]
+base64 = "0.10"
 bincode = "1.0"
 byteorder = "1.0"
 clap = "2"
