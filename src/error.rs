@@ -1,21 +1,6 @@
 use std::convert::From;
 
 #[derive(Fail, Debug)]
-pub enum ApplicationError {
-	#[fail(display = "could not parse the specified network address")]
-	MissingAddr,
-
-	#[fail(display = "failed to connect to socket")]
-	SocketErr { inner: udt::UdtError },
-
-	#[fail(display = "failed to send data through socket")]
-	TxErr { inner: udt::UdtError },
-
-	#[fail(display = "failed to receive data through socket")]
-	RxErr { inner: udt::UdtError },
-}
-
-#[derive(Fail, Debug)]
 pub enum ProtoError {
 	#[fail(display = "unexpected crypto error")]
 	CryptoErr,
@@ -34,7 +19,7 @@ pub enum ProtoError {
 }
 
 impl From<ring::error::Unspecified> for ProtoError {
-	fn from(err: ring::error::Unspecified) -> Self {
+	fn from(_err: ring::error::Unspecified) -> Self {
 		ProtoError::CryptoErr
 	}
 }

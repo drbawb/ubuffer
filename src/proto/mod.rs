@@ -1,7 +1,7 @@
 pub use self::receiver::Receiver;
 pub use self::sender::Sender;
 
-use crate::error::{ApplicationError, ProtoError};
+use crate::error::ProtoError;
 use failure::Fail;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, ToSocketAddrs};
@@ -113,7 +113,7 @@ impl Read for Stream {
 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
 		let buf_len = buf.len();
 		let bytes_recvd = self.inner.recv(buf, buf_len)
-			.map_err(|err| ApplicationError::SocketErr { inner: err }.compat())
+			.map_err(|err| ProtoError::SocketErr { inner: err }.compat())
 			.map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err))?;
 
 		// TODO: check the sanity of this cast.
@@ -125,7 +125,7 @@ impl Read for Stream {
 impl Write for Stream {
 	fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
 		let bytes_sent = self.inner.send(&buf)
-			.map_err(|err| ApplicationError::SocketErr { inner: err }.compat())
+			.map_err(|err| ProtoError::SocketErr { inner: err }.compat())
 			.map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err))?;
 
 		// TODO: check the sanity of this cast.

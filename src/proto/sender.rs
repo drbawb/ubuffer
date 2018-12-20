@@ -272,8 +272,6 @@ impl Sender {
 		let buf = vec![0u8; 12];
 		let mut cursor = Cursor::new(buf);
 
-		let nonce = self.nonce;
-		let counter = self.counter;
 		self.counter += 1;
 		
 		cursor.write_u32::<NetworkEndian>(self.nonce)?;

@@ -11,14 +11,10 @@ extern crate ring;
 extern crate serde;
 extern crate udt;
 
-use crate::error::ApplicationError;
-use crate::proto::BLOCK_SIZE;
 use crate::proto::{Sender, Receiver};
 
 use clap::{Arg, App};
-use std::io::{self, BufReader, BufRead, Write};
-use std::net::ToSocketAddrs;
-use udt::{SocketFamily, SocketType, UdtSocket};
+use std::io;
 
 mod error;
 mod proto;

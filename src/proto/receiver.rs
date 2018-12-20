@@ -2,7 +2,7 @@ use crate::error::ProtoError;
 use crate::proto::{MessageTy, Message, Mode, State, Stream};
 use crate::proto::{BLOCK_SIZE, MAGIC_BYTES, MESSAGE_SIZE};
 
-use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{NetworkEndian, WriteBytesExt};
 use rand::Rng;
 use ring::aead::{self, OpeningKey, SealingKey};
 use std::io::{Cursor, Read, Write};
@@ -53,13 +53,11 @@ impl Receiver {
 					self.stream.as_socket().close()?;
 					return Ok(());
 				},
-
-				_ => panic!("receiver state not implemented ..."),
 			}
 		}
 	}
 
-	fn wait_chunk<W: Write>(&mut self, mut block_buf: &mut [u8], mut out: W) -> Result<(), ProtoError> {
+	fn wait_chunk<W: Write>(&mut self, block_buf: &mut [u8], mut out: W) -> Result<(), ProtoError> {
 		info!("waiting for block from client ...");
 		let mut buf = vec![0u8; MESSAGE_SIZE];
 		self.stream.read_exact(&mut buf)?;
@@ -84,7 +82,6 @@ impl Receiver {
 		// decrypt the message
 		let mut pos = 0;
 		'copy: loop {
-			let buf_len = block_buf.len();
 			let bytes_read = self.stream.read(&mut block_buf[pos..])?;
 
 			if bytes_read == 0 {
@@ -235,8 +232,6 @@ impl Receiver {
 		let buf = vec![0u8; 12];
 		let mut cursor = Cursor::new(buf);
 
-		let nonce = self.nonce;
-		let counter = self.counter;
 		self.counter += 1;
 		
 		cursor.write_u32::<NetworkEndian>(self.nonce)?;
