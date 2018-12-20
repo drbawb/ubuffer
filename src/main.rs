@@ -52,6 +52,7 @@ fn main() -> Result<(), failure::Error> {
 						 .short(CLI_ARG_KEY_SHORT)
 						 .long(CLI_ARG_KEY_LONG)
 						 .help(CLI_TXT_KEY)
+						 .takes_value(true)
 						 .required(true)))
 		.subcommand(SubCommand::with_name(CLI_SUB_RECV)
 					.about(CLI_TXT_RECV)
@@ -62,6 +63,7 @@ fn main() -> Result<(), failure::Error> {
 						 .short(CLI_ARG_KEY_SHORT)
 						 .long(CLI_ARG_KEY_LONG)
 						 .help(CLI_TXT_KEY)
+						 .takes_value(true)
 						 .required(true)))
 		.get_matches();
 
