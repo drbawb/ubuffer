@@ -95,7 +95,8 @@ fn main() -> Result<(), failure::Error> {
 fn start_sender(addr: &str, key: &str) -> Result<(), failure::Error> {
 	let key = base64::decode(key)?;
 	let mut sender = Sender::new(addr, &key)?;
-	sender.run(io::stdin())?;
+	let stdin = io::stdin();
+	sender.run(stdin.lock())?;
 
 	Ok(())
 }
@@ -103,7 +104,8 @@ fn start_sender(addr: &str, key: &str) -> Result<(), failure::Error> {
 fn start_receiver(addr: &str, key: &str) -> Result<(), failure::Error> {
 	let key = base64::decode(key)?;
 	let mut receiver = Receiver::new(addr, &key)?;
-	receiver.run(io::stdout())?;
+	let stdout = io::stdout();
+	receiver.run(stdout.lock())?;
 
 	Ok(())
 }
