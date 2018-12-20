@@ -1,10 +1,10 @@
 use crate::error::ProtoError;
 use crate::proto::{MessageTy, Message, Mode, State, Stream};
-use crate::proto::{MAGIC_BYTES, MESSAGE_SIZE};
+use crate::proto::{BLOCK_SIZE, MAGIC_BYTES, MESSAGE_SIZE};
 
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use ring::aead::{self, OpeningKey, SealingKey};
-use std::io::{Cursor, Read, Write};
+use std::io::{self, BufRead, BufReader, Cursor, Read, Write};
 use std::mem;
 use std::net::ToSocketAddrs;
 
@@ -54,6 +54,18 @@ impl Sender {
 		})
 	}
 
+	/// This runs the `Sender` state machine to completion.
+	/// 
+	/// First the sender attempts to connect to the remote peer and
+	/// perform a handshake. 
+	///
+	/// Once the encrypted channel is setup the sender begins reading
+	/// chunks from stdin and encrypts them to be sent over the wire
+	/// to the receiver.
+	///
+	/// Once the end of `stdin` has been reached the sender performs a
+	/// closing handshake to attempt to cleanly shutdown the receiver
+	/// and ensure that it has flushed all contents to its output buffer.
 	pub fn run<R: Read>(&mut self, mut input: R) -> Result<(), ProtoError> {
 		info!("starting sender ...");
 
@@ -66,8 +78,66 @@ impl Sender {
 		}
 	}
 
+	fn transmit<R: Read>(&mut self, input: R) -> Result<(), ProtoError> {
+		let tag_len = self.enc_key.algorithm().tag_len();
+		let mut reader = BufReader::with_capacity(BLOCK_SIZE, input);
+		let mut enc_buffer = vec![0u8; BLOCK_SIZE + tag_len];
+
+		'copy: loop {
+			let chunk = reader.fill_buf()?;
+			info!("copying block from stdin {}", enc_buffer.len());
+			info!("block size: {}", chunk.len());
+			let mut input_cursor = Cursor::new(&chunk);
+			let mut enc_cursor = Cursor::new(&mut enc_buffer[..BLOCK_SIZE]);
+			let bytes_read = io::copy(&mut input_cursor, &mut enc_cursor)? as usize;
+
+			// TODO: why is io::copy returning a u64?
+			info!("copied {} bytes", bytes_read);
+			reader.consume(bytes_read);
+
+			if bytes_read == 0 {
+				info!("buffer reached eof");
+				break 'copy;
+			}
+
+			info!("encrypting block w/ tag {}", tag_len);
+			assert!(bytes_read <= BLOCK_SIZE);
+			let nonce = self.get_next_nonce()?;
+			let enc_msg_len = bytes_read + tag_len;
+			let enc_size = aead::seal_in_place(&self.enc_key, &nonce, b"", &mut enc_buffer[..enc_msg_len], tag_len)?;
+
+			// create encrypted packet header
+			let block_msg = Message {
+				ty: MessageTy::Block,
+				len: enc_size,
+			};
+
+			info!("sending block message: {:?}", block_msg);
+			let block_buf = bincode::serialize(&block_msg)?;
+			assert_eq!(block_buf.len(), MESSAGE_SIZE);
+
+			self.stream.write(&block_buf)?;
+
+			let mut pos = 0;
+			'write: loop {
+				let bytes_sent = self.stream.write(&enc_buffer[pos..enc_size])?;
+				pos += bytes_sent as usize;
+
+				info!("pos: {}, sent: {}, len: {}", pos, bytes_sent, bytes_read);
+				if pos >= enc_size { break 'write; }
+			}
+		}
+
+		self.state = State::WaitHangup;
+		Ok(())
+	}
+
 	fn wait_hup(&mut self) -> Result<(), ProtoError> {
-		unreachable!()
+		// TODO
+		loop {
+			::std::thread::sleep_ms(1000);
+			info!("waiting for hup ...");
+		}
 	}
 
 	fn wait_hello(&mut self) -> Result<(), ProtoError> {
@@ -182,9 +252,4 @@ impl Sender {
 
 		Ok(cursor.into_inner().into_boxed_slice())
 	}
-
-	fn transmit<R: Read>(&mut self, input: R) -> Result<(), ProtoError> {
-		unreachable!()
-	}
-
 }

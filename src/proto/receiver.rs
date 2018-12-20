@@ -1,6 +1,6 @@
 use crate::error::ProtoError;
 use crate::proto::{MessageTy, Message, Mode, State, Stream};
-use crate::proto::{MAGIC_BYTES, MESSAGE_SIZE};
+use crate::proto::{BLOCK_SIZE, MAGIC_BYTES, MESSAGE_SIZE};
 
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use rand::Rng;
@@ -40,14 +40,56 @@ impl Receiver {
 		})
 	}
 
-	pub fn run<W: Write>(&mut self, mut input: W) -> Result<(), ProtoError> {
+	pub fn run<W: Write>(&mut self, mut out: W) -> Result<(), ProtoError> {
+		let mut block_buf = vec![0u8; BLOCK_SIZE + self.enc_key.algorithm().tag_len()];
+
 		loop {
 			match self.state {
 				State::WaitHello => self.wait_hello()?,
+				State::Transmit => self.wait_chunk(&mut block_buf, &mut out)?,
 
 				_ => panic!("receiver state not implemented ..."),
 			}
 		}
+	}
+
+	fn wait_chunk<W: Write>(&mut self, mut block_buf: &mut [u8], mut out: W) -> Result<(), ProtoError> {
+		info!("waiting for block from client ...");
+		let mut buf = vec![0u8; MESSAGE_SIZE];
+		self.stream.read_exact(&mut buf)?;
+
+		// read the block header
+		let message: Message = bincode::deserialize(&buf)?;
+		assert_eq!(message.ty, MessageTy::Block);
+		
+		let block_sz = message.len;
+		let msg_nonce = self.get_next_nonce()?;
+		assert!(block_sz <= block_buf.len());
+
+		// decrypt the message
+		let mut pos = 0;
+		'copy: loop {
+			let buf_len = block_buf.len();
+			let bytes_read = self.stream.read(&mut block_buf[pos..])?;
+
+			if bytes_read == 0 {
+				info!("stream reached EOF");
+				break 'copy;
+			}
+
+			info!("recv {} bytes", bytes_read);
+			pos += bytes_read;
+			if pos >= block_sz {
+				info!("done copying encrypted block...");
+				break 'copy;
+			}
+		}
+
+		let payload = aead::open_in_place(&self.dec_key, &msg_nonce, b"", 0, &mut block_buf[..pos])?;
+		out.write(&payload)?;
+		out.flush()?;
+
+		Ok(())
 	}
 
 	fn wait_hello(&mut self) -> Result<(), ProtoError> {
@@ -68,7 +110,6 @@ impl Receiver {
 		info!("waiting for client req iv");
 		let mut buf = vec![0u8; MESSAGE_SIZE];
 		self.stream.read_exact(&mut buf)?;
-
 		let message: Message = bincode::deserialize(&buf)?;
 		
 		assert_eq!(message.ty, MessageTy::ReqIV);
