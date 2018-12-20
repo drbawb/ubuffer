@@ -11,8 +11,15 @@ mod receiver;
 mod sender;
 mod util;
 
+/// The block size used for the internal send/receiver buffers.
 pub const BLOCK_SIZE: usize = 8 * 1024;
+
+/// Used during the initial handshake to verify the encryption channel
+/// is set up successfully.
 pub const MAGIC_BYTES: u32 = 0xDEADBEEF;
+
+/// This is the size of a serialized `Message` in bytes when used with
+/// the `bincode` serializer.
 pub const MESSAGE_SIZE: usize = 12;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -62,6 +69,11 @@ struct Stream {
 }
 
 /// The `Stream` represents an underlying UDT socket.
+/// 
+/// This is a wrapper type which implements `Read` and `Write` for the
+/// underlying socket. Additionally it implements some applicaiton level
+/// semantics. (Such as the `sender` vs `receiver` roles.)
+///
 impl Stream {
 	/// When created in the `Receiver` mode it begins listening on the
 	/// specified address. Otherwise if created in `Sender` mode it attempts

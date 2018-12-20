@@ -9,22 +9,25 @@ use std::io::{self, BufRead, BufReader, Cursor, Read, Write};
 use std::mem;
 use std::net::ToSocketAddrs;
 
-/// A `Stream` implements both halves of the `ubuffer` protocol.
+/// The `Sender` implements the sending half of the buffer, it encrypts
+/// blocks and sends them out over the UDT socket.
 ///
-/// If a stream is created in the `Receiver` mode it will create a
-/// UDT socket and begin listening on the specified address. When a
-/// corresponding `Sender` connects to that same address the receiver
-/// begins the handshake process which works as follows: 
+/// The `Sender` is a state machine which will block the current thread
+/// until it has run to completion. It has the following states:
 ///
-/// 1. The receiver sends a `ReqIV` to the sender.
-/// 2. The sender replies with a randomly created seed in a `RepIV` message.
-/// 3. The receiver and sender both initialize their ciphers using their keys
-///    (configured out of band) as well as the agreed upon IV.
-/// 4. The receiver sends an encrypted `Hello` message with a nonce.
-/// 5. The sender acknowledges this by encrypting its own `Hello` message
-///    with a corresponding nonce.
-/// 6. Both streams enter the `Transmit` state and begin exchanging encrypted
-///    blocks with each other.
+/// 1. `State::WaitHello`: in this state the sender initiates the handshake
+///    and tests the agreed upon encryption parameters by exchanging a
+///    `MessageTy::Hello` w/ the receiver.
+///
+/// 2. `State::Transmit`: in this state the sender reads bytes from the
+///    input until it reaches EOF. These bytes are read into an internal
+///    buffer and subsequently encrypted in-place.
+///
+/// 3. `State:WaitHangup`: once the sender reaches EOF it sends the
+///    `MessageTy::Goodbye` packet to the receiver. It awaits a response
+///    indicating the receiver has finished receiving data which is still
+///    in-flight. Upon receiving this goodbye the sender closes the connection
+///    and exits successfully.
 ///
 pub struct Sender {
 	dec_key: OpeningKey,
