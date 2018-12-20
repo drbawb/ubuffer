@@ -5,21 +5,76 @@ ubuffer
 network transfers at extremely high throughput. Instead of using TCP (like
 `scp`, `mbuffer`, `ftp`, et al.) we use a UDP based protocol (UDT[1]) instead.
 
-NOTE: `ubuffer` *does not* encrypt data on the wire. Encryption must happen
-at a higher level than this application. It is designed to work well over
-UDP based VPNs, like WireGuard, which may provide sufficient security for
-your use case.
+NOTE: `ubuffer` is *alpha quality* software. It has not undergone any sort
+of analysis as to its performance, the soundness of its encryption implementation,
+etc. Use it strictly at your own risk.
+
+## building
+
+This is a Rust project which can be built using the Cargo package manager.
+Install Rust using your OS distribution's preferred package manager, or visit
+[the Rust website](https://www.rust-lang.org/) for further instructions.
+
+Once you have a working installation of `rustc` and `cargo` on your `PATH` you
+can build this project using the following steps:
+
+1. `git clone https://github.com/drbawb/ubuffer` to download the source fiels
+2. `cd ubuffer` to enter the directory w/ the Cargo.toml file
+3. `cargo build --release` to build an optimized copy of the software
+
+The finished binary will be placed in `target/release/ubuffer` which can be
+installed on your PATH using your preferred method.
+
+## usage
+
+Use the `ubuffer help` command to print usage instructions. You can use
+`ubuffer help <subcommand>` to get more detailed information about a 
+specific command.
+
+An example `ubuffer` session might look something like this:
+
+1. `ubuffer genkey` will print a base64 encoded encryption key, you
+   will need to copy this as it will be needed to start both the sender
+   and receiver.
+
+2. `ubuffer receiver [address] -k [key] > output.txt` will start the
+   program in "receiver mode" bound to the specified address and port.
+   it will use the specified key to decrypt incoming data blocks.
+
+3. `cat input.txt | ubufer sender [address] -k [key]` will start the
+   program in "sender mode", it will copy the data from stdin and encrypt
+   it using the specified key. the data will be sent to the receiver at the
+   specified address.
 
 
 ## theory of operation
 
-The `ubuffer` binary contains two primary modes: the sender (`-s`) and
-the receiver (`-r`). The receiver binds to an IPv4 or IPv6 address and
-awaits a single connection. The sender then connects to that same address
-and begins streaming data to it.
+The `ubuffer` program operates in two primary modes: the receiver, which
+listens for data on a UDP socket, and the sender which transmits data to
+that remote socket.
 
-The sender reads data from `stdin` to an internal buffer in 128KiB blocks.
-The receiver copies all data, as it is received, to stdout.
+The receiver waits to accept one, and only one, incoming client connection.
+If a client connects and fails to properly handshake the receiver will
+terminate. At present the receiver *does not* support multiple clients in
+any way.
+
+The client connects to a receiver and performs a simple handshake. It sends
+an unencrypted message asking the receiver to generate a nonce for the session.
+The receiver replies with the nonce, similarly in the clear. Once both sides 
+have the nonce the client encrypts a `Hello` message and sends it to the receiver.
+If the receiver is able to successfully decrypt this message it likewise encrypts
+a `Hello` and sends it to the sender.
+
+Once the sender & receiver have exchanged this encrypted handshake the sender is
+free to begin transmitting encrypted data blocks. To do so it first sends a fixed
+header indicating the size of the encrypted payload, each time such a header is
+received internal counters are incremented on both sides of the connection.
+
+The receiver reads the length specified and attempts to decrypt the packet. If at
+any time decryption fails the receiver tears down the connection immediately. Once
+the sender has finished sending blocks it sends an (unencrypted) `Goodbye` header. 
+The receiver upon reading a `Goodbye` header acknowledges receipt of it, at which
+point the sender tears down the connection gracefully and the server exits.
 
 ## future improvements
 
