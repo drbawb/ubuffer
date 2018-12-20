@@ -67,20 +67,20 @@ fn main() -> Result<(), failure::Error> {
 						 .required(true)))
 		.get_matches();
 
-	if let Some(_cmd) = matches.subcommand_matches("sender") {
-		let key = matches.value_of(CLI_ARG_KEY)
+	if let Some(cmd) = matches.subcommand_matches("sender") {
+		let key = cmd.value_of(CLI_ARG_KEY)
 			.expect("fatal: sender requires an encryption key.");
 
-		let addr = matches.value_of("REMOTE_ADDR")
+		let addr = cmd.value_of("REMOTE_ADDR")
 			.expect("fatal: sender requires a remote address.");
 
 		start_sender(addr, key)?;
-	} else if let Some(_cmd) = matches.subcommand_matches("receiver") {
-		let key = matches.value_of(CLI_ARG_KEY)
-			.expect("fatal: sender requires an encryption key.");
+	} else if let Some(cmd) = matches.subcommand_matches("receiver") {
+		let key = cmd.value_of(CLI_ARG_KEY)
+			.expect("fatal: receiver requires an encryption key.");
 
-		let addr = matches.value_of("LISTEN_ADDR")
-			.expect("fatal: sender requires a remote address.");
+		let addr = cmd.value_of("LISTEN_ADDR")
+			.expect("fatal: receiver requires a remote address.");
 
 		start_receiver(addr, key)?;
 	} else if let Some(_cmd) = matches.subcommand_matches("genkey") {
