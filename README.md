@@ -27,9 +27,24 @@ installed on your PATH using your preferred method.
 
 ## usage
 
-Use the `ubuffer help` command to print usage instructions. You can use
+The `ubuffer help` command will print usage instructions. You can use
 `ubuffer help <subcommand>` to get more detailed information about a 
 specific command.
+
+```
+USAGE:
+    ubuffer receiver <LISTEN_ADDR> --key <KEY>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -k, --key <KEY>    The encryption key used to encrypt data blocks. (Must match on both sender & receiver.)
+
+ARGS:
+    <LISTEN_ADDR>    The address and port to listen on for incoming senders.
+```
 
 An example `ubuffer` session might look something like this:
 
@@ -45,7 +60,6 @@ An example `ubuffer` session might look something like this:
    program in "sender mode", it will copy the data from stdin and encrypt
    it using the specified key. the data will be sent to the receiver at the
    specified address.
-
 
 ## theory of operation
 
