@@ -89,7 +89,7 @@ impl Receiver {
 				break 'copy;
 			}
 
-			info!("recv {} bytes", bytes_read);
+			trace!("recv {} bytes", bytes_read);
 			pos += bytes_read;
 			if pos >= block_sz {
 				trace!("done copying encrypted block...");
