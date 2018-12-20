@@ -10,6 +10,27 @@ use std::io::{Cursor, Read, Write};
 use std::mem;
 use std::net::ToSocketAddrs;
 
+/// The `Receiver` represents the listening half of a `ubuffer`.
+/// 
+/// It maintains a state machine along with an underlying UDT socket.
+/// When the Receiver is running it will block the current thread until
+/// it has run its state machine to completion (or the corresponding sender
+/// has hung-up the connection.)
+///
+/// A `Receiver` goes through the following states during it's lifecycle:
+///
+/// 1. `State::WaitHello`: the receiver waits for a sender to connect, it
+///    accepts the connection and the handshake is performed.
+///
+/// 2. `State:Transmit`: the receiver waits for incoming blocks. The only
+///    messages which are legal during this point are either `MessageTy::Block`
+///    which specifies the length of an encrypted payload, or `MessageTy::Goodbye`
+///    which indicates that the sender wants to hang up.
+///
+/// 3. `State::WaitHangup` the receiver enters this state after receiving a goodbye.
+///    In this state the receiver performs its end of the closing handshake, and then
+///    terminates the `run()` loop.
+///
 pub struct Receiver {
 	dec_key: OpeningKey,
 	enc_key: SealingKey,
@@ -22,6 +43,11 @@ pub struct Receiver {
 }
 
 impl Receiver {
+	/// Creates a `Receiver` which listens on the specified network address (`addr`)
+	/// and will use the `key` to decrypt incoming packets. Note that a Receiver will
+	/// only `accept()` a single incoming connection, all other clients will be ignored.
+	/// If a client connects and fails to create the proper handshake the receiver will
+	/// eventually timeout and exit.
 	pub fn new<S: ToSocketAddrs>(addr: S, key: &[u8]) -> Result<Self, ProtoError> {
 		info!("starting receiver ...");
 		let stream = Stream::new(Mode::Receiver, addr)?;
@@ -41,6 +67,18 @@ impl Receiver {
 		})
 	}
 
+	/// Starts the `Receiver` using the current thread.
+	///
+	/// The receiver will write all output to `out` as it is received. If the
+	/// result is `Ok(_)` then the sender successfully completed the transfer
+	/// and hung-up the connection gracefully. Any other response indicates the
+	/// message is either corrupt or incopmlete.
+	///
+	/// Note that if the receiver & sender successfully handshake (that is: they
+	/// exchange `MessageTy::Hello` with one another) and only later encounter
+	/// a crypto error it likely indicates a packet was corrupted or the sender
+	/// was interrupted.
+	///
 	pub fn run<W: Write>(&mut self, mut out: W) -> Result<(), ProtoError> {
 		let mut block_buf = vec![0u8; BLOCK_SIZE + self.enc_key.algorithm().tag_len()];
 
