@@ -17,8 +17,8 @@ pub const MESSAGE_SIZE: usize = 12;
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 enum MessageTy {
 	/// The data which follows is an incoming block of data from the sender.
-	/// It is encrypted with the parameters agreed upon at the beginning of
-	/// the session.
+	/// The `len` bytes which follow this message are encrypted with the 
+	/// parameters agreed upon at the beginning of the session.
 	Block,
 
 	/// The sender is informing the receiver that it would like initialization
@@ -33,6 +33,10 @@ enum MessageTy {
 
 	/// The sender acknowledges receipt of the nonce with an encrypted `Hello`.
 	Hello,
+
+	/// The sender informs the receiver that it is done sending blocks with
+	/// a `Goodbye` message.
+	Goodbye,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

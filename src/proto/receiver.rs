@@ -48,6 +48,12 @@ impl Receiver {
 				State::WaitHello => self.wait_hello()?,
 				State::Transmit => self.wait_chunk(&mut block_buf, &mut out)?,
 
+				State::WaitHangup => {
+					self.wait_goodbye()?;
+					self.stream.as_socket().close()?;
+					return Ok(());
+				},
+
 				_ => panic!("receiver state not implemented ..."),
 			}
 		}
@@ -60,6 +66,15 @@ impl Receiver {
 
 		// read the block header
 		let message: Message = bincode::deserialize(&buf)?;
+		match message.ty {
+			MessageTy::Goodbye => {
+				self.state = State::WaitHangup;
+				return Ok(());
+			},
+
+			_ => {},
+		}
+
 		assert_eq!(message.ty, MessageTy::Block);
 		
 		let block_sz = message.len;
@@ -103,6 +118,10 @@ impl Receiver {
 		self.state = State::Transmit;
 
 		Ok(())
+	}
+
+	fn wait_goodbye(&mut self) -> Result<(), ProtoError> {
+		self.send_server_goodbye()
 	}
 
 	fn recv_req_iv(&mut self) -> Result<(), ProtoError> {
@@ -195,7 +214,21 @@ impl Receiver {
 		self.stream.write(&enc_buf[..msg_sz])?;
 
 		Ok(())
+	}
 
+	fn send_server_goodbye(&mut self) -> Result<(), ProtoError> {
+		info!("sending goodbye ...");
+
+		let goodbye_msg = Message {
+			ty: MessageTy::Goodbye,
+			len: 0,
+		};
+
+		let goodbye_buf = bincode::serialize(&goodbye_msg)?;
+		assert_eq!(goodbye_buf.len(), MESSAGE_SIZE);
+		self.stream.write(&goodbye_buf)?;
+
+		Ok(())
 	}
 
 	fn get_next_nonce(&mut self) -> Result<Box<[u8]>, ProtoError> {

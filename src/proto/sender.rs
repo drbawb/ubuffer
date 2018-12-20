@@ -71,9 +71,13 @@ impl Sender {
 
 		loop {
 			match self.state {
-				State::WaitHangup => self.wait_hup()?,
 				State::WaitHello => self.wait_hello()?,
 				State::Transmit => self.transmit(&mut input)?,
+
+				State::WaitHangup => {
+					self.wait_hup()?;
+					return Ok(());
+				}
 			}
 		}
 	}
@@ -133,11 +137,9 @@ impl Sender {
 	}
 
 	fn wait_hup(&mut self) -> Result<(), ProtoError> {
-		// TODO
-		loop {
-			::std::thread::sleep_ms(1000);
-			info!("waiting for hup ...");
-		}
+		self.send_client_goodbye()?;
+		self.recv_server_goodbye()?;
+		Ok(())
 	}
 
 	fn wait_hello(&mut self) -> Result<(), ProtoError> {
@@ -216,6 +218,18 @@ impl Sender {
 
 		Ok(())
 	}
+	
+	fn send_client_goodbye(&mut self) -> Result<(), ProtoError> {
+		let goodbye_msg = Message {
+			ty: MessageTy::Goodbye,
+			len: 0,
+		};
+
+		let goodbye_buf = bincode::serialize(&goodbye_msg)?;
+		self.stream.write(&goodbye_buf)?;
+
+		Ok(())
+	}
 
 	fn recv_hello(&mut self) -> Result<(), ProtoError> {
 		info!("receiving hello ...");
@@ -236,6 +250,21 @@ impl Sender {
 		info!("decrypted hello of size: {}", payload.len());
 		info!("hello was: {:?}", &payload);
 
+		Ok(())
+	}
+
+	fn recv_server_goodbye(&mut self) -> Result<(), ProtoError> {
+		info!("receiving goodbye ...");
+
+		let mut buf = vec![0u8; MESSAGE_SIZE];
+		self.stream.read_exact(&mut buf)?;
+		let goodbye_msg: Message = bincode::deserialize(&buf)?;
+
+		if goodbye_msg.ty != MessageTy::Goodbye {
+			return Err(ProtoError::UnexpectedMessage);
+		}
+
+		info!("goodbye world ...");
 		Ok(())
 	}
 
