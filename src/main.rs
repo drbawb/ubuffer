@@ -24,7 +24,7 @@ fn main() -> Result<(), failure::Error> {
 
 	let matches = App::new("UDT buffer")
 		.version(env!("CARGO_PKG_VERSION")) 
-		.about("Transfers files between two nodes over uTP.")
+		.about("Transfers files between two nodes using the UDT protocol.")
 		.arg(Arg::with_name("recv_addr")
 			 .short("r")
 			 .long("recv")
