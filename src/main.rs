@@ -69,6 +69,7 @@ fn main() -> Result<(), failure::Error> {
 						 .required(true)))
 		.get_matches();
 
+
 	if let Some(cmd) = matches.subcommand_matches("sender") {
 		let key = cmd.value_of(CLI_ARG_KEY)
 			.expect("fatal: sender requires an encryption key.");
@@ -88,7 +89,7 @@ fn main() -> Result<(), failure::Error> {
 	} else if let Some(_cmd) = matches.subcommand_matches("genkey") {
 		genkey();
 	} else {
-		panic!("no matching subcommand specified?");
+		println!("Please enter a subcommand. See `ubuffer --help` for more details.");
 	}
 
 	Ok(())
