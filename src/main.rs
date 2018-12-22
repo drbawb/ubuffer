@@ -28,8 +28,10 @@ const CLI_SUB_RECV: &str = "receiver";
 const CLI_ARG_KEY: &str = "KEY";
 const CLI_ARG_KEY_SHORT: &str = "k";
 const CLI_ARG_KEY_LONG: &str = "key";
+const CLI_ARG_INET_ADDR: &str = "INET_ADDR";
 
 const CLI_TXT_APP: &str = "Transfer files between two nodes using the UDT protocol.";
+const CLI_TXT_INET: &str = "The network address & port used to send & receive data. (i.e: 0.0.0.0:9999)";
 const CLI_TXT_KEY: &str = "The encryption key used to encrypt data blocks. (Must match on both sender & receiver.)";
 const CLI_TXT_GENKEY: &str = "generates a random encryption key on stdout (256-bits, base64 encoded)";
 const CLI_TXT_SEND: &str = "starts `ubuffer` in sender mode.";
@@ -45,8 +47,8 @@ fn main() -> Result<(), failure::Error> {
 					.about(CLI_TXT_GENKEY))
 		.subcommand(SubCommand::with_name(CLI_SUB_SEND)
 					.about(CLI_TXT_SEND)
-					.arg(Arg::with_name("REMOTE_ADDR")
-						 .help("The address of the remote peer waiting in `receiver` mode.")
+					.arg(Arg::with_name(CLI_ARG_INET_ADDR)
+						 .help(CLI_TXT_INET)
 						 .required(true))
 					.arg(Arg::with_name(CLI_ARG_KEY)
 						 .short(CLI_ARG_KEY_SHORT)
@@ -56,8 +58,8 @@ fn main() -> Result<(), failure::Error> {
 						 .required(true)))
 		.subcommand(SubCommand::with_name(CLI_SUB_RECV)
 					.about(CLI_TXT_RECV)
-					.arg(Arg::with_name("LISTEN_ADDR")
-						 .help("The address and port to listen on for incoming senders.")
+					.arg(Arg::with_name(CLI_ARG_INET_ADDR)
+						 .help(CLI_TXT_INET)
 						 .required(true))
 					.arg(Arg::with_name(CLI_ARG_KEY)
 						 .short(CLI_ARG_KEY_SHORT)
