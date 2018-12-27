@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "ubuffer"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "base64 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
